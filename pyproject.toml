@@ -1,0 +1,21 @@
+[project]
+name = "glassycabon"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "ase>=3.27.0",
+    "e3nn>=0.5.9",
+    "matplotlib>=3.10.8",
+    "numpy>=2.2.6",
+    "pyyaml>=6.0.3",
+    "torch>=2.10.0",
+    "torch-geometric>=2.7.0",
+    "wandb>=0.25.0",
+]
+
+[tool.uv.workspace]
+members = [
+    "discussion1",
+]

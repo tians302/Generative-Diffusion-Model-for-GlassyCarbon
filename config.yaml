@@ -1,0 +1,62 @@
+# Data Processing (data-ingestion.py & dataset.py)
+data:
+  raw_dataset: "dataset-SiC-TGAP.xyz"
+  processed_xyz: "sic_amorphous.xyz" # https://zenodo.org/records/17182227
+  processed_pt: "sic_graph_data.pt"
+  material_types: 
+    - "amorph_aimd"
+  # material_types: 
+  #   - "amorph_aimd"
+  #   - "quench_aimd"
+  #   - "eqlMelt_aimd"
+  #   - "melt_aimd"
+
+# Graph Construction (dataset.py & diffusion.py)
+graph:
+  cutoff_radius: 5.0      # Ångströms
+  max_neighbors: 12
+
+# NequIP Model Architecture (nequip_layer.py)
+model:
+  num_layers: 3
+  num_types: 2            # e.g., Si=14, C=6
+  embedding_dim: 8
+  bessel_basis: 8
+  irreps_node: "64x0e + 32x1o"
+  irreps_sh: "1x0e + 1x1o + 1x2e"
+  irreps_edge: "4x0e + 4x1o + 2x2e"
+  density_min: 2.0        # Minimum bound for scalar embedder
+  density_max: 3.5        # Maximum bound for scalar embedder
+
+# DDPM Architecture (diffusion.py)
+diffusion:
+  num_steps: 3000
+  sigma_min: 0.001
+  sigma_max: 0.75
+  langevin_steps: 2900    # Steps to apply extra noise during generation
+
+# Training Hyperparameters (train.py)
+training:
+  batch_size: 2
+  learning_rate: 0.0002   # 2e-4
+  num_epochs: 40000           
+  val_split: 0.1
+  log_interval: 400
+  checkpoints:
+    latest: "sic_diffusion_latest.pt"
+    best: "sic_diffusion_best.pt"
+    final: "sic_diffusion_final.pt"
+  loss_curve_img: "loss_curve.png"
+
+# Inference & Generation (generate.py)
+generation:
+  target_density: 3.21
+  cell_size: [10.0, 10.0, 10.0]
+  num_atoms: 60
+  output_filename: "generated_sic.xyz"
+
+# Physics Evaluation (evaluate.py)
+evaluation:
+  tolerance: 0.05
+  bins: 100
+  output_img: "rdf_comparison.png"
