@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import random_split
 import matplotlib.pyplot as plt
-from dataset import SiCGraphDataset
-from nequip_layer import NequIP_SiC
+from dataset import GCGraphDataset
+from nequip_layer import NequIP_GC
 from diffusion import DiffusionModel
 from torch_geometric.loader import DataListLoader
 from torch_geometric.nn import DataParallel as PyG_DataParallel
@@ -32,7 +32,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def train():
     # WANDB intialization
     wandb.init(
-        project="sic-diffusion-benchmark",
+        project="gc-diffusion-benchmark",
         config=config, # Automatically logs your hyperparameters!
         name="multi-gpu-benchmark"
     )
@@ -42,7 +42,7 @@ def train():
         import data_ingestion
 
     # Loads and splits dataset
-    dataset = SiCGraphDataset(root='.', xyz_file=PROCESSED_XYZ)
+    dataset = GCGraphDataset(root='.', xyz_file=PROCESSED_XYZ)
     dataset_size = len(dataset)
     val_size = max(1, int(dataset_size * VAL_SPLIT))
     train_size = dataset_size - val_size
@@ -51,7 +51,7 @@ def train():
     val_loader = DataListLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=8, pin_memory=True)
 
     # Initializing models
-    gnn_model = NequIP_SiC(
+    gnn_model = NequIP_GC(
         num_layers=config['model']['num_layers'], 
         num_types=config['model']['num_types'], 
         cutoff=config['graph']['cutoff_radius']
@@ -79,7 +79,6 @@ def train():
     train_losses = []
     val_losses = []
     best_val_loss = float('inf') # Start with infinity so the first epoch always saves
-    latest_checkpoint = "sic_diffusion_latest.pt"
 
     # Resumes training from checkpoint
     if os.path.exists(LATEST_CHECKPOINT):

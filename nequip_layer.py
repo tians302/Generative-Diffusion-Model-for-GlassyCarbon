@@ -140,7 +140,7 @@ class RichEdgeEmbedder(nn.Module):
 # Translation invariant due to using relative atomic distances of atoms
 # Permuation invariant (swapping atoms lables makes the feature vector move with it; total energy is invariant to permutation; message passing layers summing information from neighboring atoms (order does not matter)
 # Rotation invariant due to spherical harmonics --> Sm(l)​(rij​)=R(rij​)Ym(l)​(r^ij​) --> angular part is hard coded symmetry and the only learnable weights are from R(r) which determines how strongly to weight interactions at each distances
-class NequIP_SiC(nn.Module):
+class NequIP_GC(nn.Module):
     def __init__(self, num_layers=NUM_LAYERS, num_types=NUM_TYPES, cutoff=CUTOFF_RADIUS):
         super().__init__()
         self.cutoff = cutoff
@@ -240,7 +240,7 @@ class NequIP_SiC(nn.Module):
         return noise_pred
 
 if __name__ == "__main__":
-    model = NequIP_SiC()
+    model = NequIP_GC()
     print("Model Built Successfully to Paper Specs!")
     print(f"Hidden: {model.irreps_node}")
     print(f"Edges:  {model.irreps_edge}")

@@ -49,7 +49,7 @@ def plot_rdf_comparison(r, gt_rdf_avg, generated_rdf, target_density):
 
     plt.xlabel('Distance r (Å)')
     plt.ylabel('Radial Distribution Function g(r)')
-    plt.title('RDF Comparison: Ground Truth vs Generated Amorphous SiC')
+    plt.title('RDF Comparison: Ground Truth vs Generated Amorphous Glassy Carbon')
     plt.legend()
     plt.grid(True, linestyle=':', alpha=0.7)
 

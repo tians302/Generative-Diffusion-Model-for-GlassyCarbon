@@ -1,5 +1,5 @@
 import torch
-from nequip_layer import NequIP_SiC
+from nequip_layer import NequIP_GC
 from diffusion import DiffusionModel
 from ase import Atoms
 from ase.io import write
@@ -15,15 +15,13 @@ NUM_ATOMS = config['generation']['num_atoms']
 OUTPUT_FILENAME = config['generation']['output_filename']
 BEST_CHECKPOINT = config['training']['checkpoints']['best']
 
-num_si = NUM_ATOMS // 2
-num_c  = NUM_ATOMS - num_si
-ASE_ATOM_TYPES   = [14] * num_si + [6] * num_c      # Si=14, C=6
-MODEL_ATOM_TYPES = [1]  * num_si + [0] * num_c      # Si->1, C->0
+ASE_ATOM_TYPES   = [6] * NUM_ATOMS      # C mass 6
+MODEL_ATOM_TYPES = [0] * NUM_ATOMS      
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def generate():
     # Initialize models
-    gnn_model = NequIP_SiC(
+    gnn_model = NequIP_GC(
         num_layers=config['model']['num_layers'], 
         num_types=config['model']['num_types'], 
         cutoff=config['graph']['cutoff_radius']

@@ -19,7 +19,7 @@ MAX_NEIGHBORS = config['graph']['max_neighbors']
 #       raw_file_names() --> returns raw file name with atomic information
 #       processed_file_names(), --> returns processed file name as a .pt (Pytorch format for saved objects)
 #       process() --> reads raw data, builds objects, collates, saves to processed paths
-class SiCGraphDataset(InMemoryDataset):
+class GCGraphDataset(InMemoryDataset):
     def __init__(self, root, xyz_file=PROCESSED_XYZ, cutoff=CUTOFF_RADIUS, max_neighbors=MAX_NEIGHBORS, transform=None):
         self.raw_filename = xyz_file
         self.cutoff = cutoff # Neighbor cutoff distance used to build edges
@@ -40,7 +40,6 @@ class SiCGraphDataset(InMemoryDataset):
         frames = read(self.raw_filename, index=':')
         
         graph_structures = []
-        element_map = {6: 0, 14: 1} # 6=Carbon, 14=Silicon
 
         for i, atoms in enumerate(frames):
             # Creates edge list 
@@ -67,15 +66,32 @@ class SiCGraphDataset(InMemoryDataset):
             # Create the final edge_index tensor with the filtered neighbors
             edge_index = torch.tensor([new_i, new_j], dtype=torch.long) # edge_index.shape == [2,num_filtered_edges (12)]
             
-            # Converts node features into Pytorch tensors
-            atomic_numbers = atoms.get_atomic_numbers() # shape == [num_atoms,1]
-            z = [element_map[n] for n in atomic_numbers]
-            z = torch.tensor(z, dtype=torch.long) # z.shape == [num_atoms,1]
-            pos = torch.tensor(atoms.get_positions(), dtype = torch.float) # pos.shape == [num_atoms,3]
-            forces = torch.tensor(atoms.get_forces(), dtype=torch.float) # forces.shape == [num_atomsx3]
-            density = torch.tensor(atoms.info['density'], dtype=torch.float) # density.shape == [1,1]
-            energy = torch.tensor([atoms.get_potential_energy() / len(atoms)], dtype=torch.float) # energy.shape == [1,1]
-            stress = torch.tensor(atoms.get_stress(voigt=False), dtype=torch.float)  # stress.shape (3,3)
+            # Validate that this is a carbon-only structure
+            atomic_numbers = atoms.get_atomic_numbers()
+            if not np.all(atomic_numbers == 6):
+                 raise ValueError(
+                      f"Frame {i} contains non-carbon atoms: "
+                      f"{sorted(set(atomic_numbers))}"
+                      )
+
+            # Extracts the forces, energy, and stress from the ASE Atoms object
+            z = torch.zeros(len(atoms), dtype=torch.long)
+            forces = torch.tensor(
+                atoms.get_forces(),
+                dtype=torch.float,
+                )
+            energy = torch.tensor(
+                [atoms.get_potential_energy()],
+                dtype=torch.float,
+                )
+            pos = torch.tensor(
+                 atoms.get_positions(),
+                 dtype=torch.float,
+                )
+            density = torch.tensor(
+                [atoms.info["density"]],
+                dtype=torch.float,
+                )
             
             # Extracts the 3D cell dimensions (Lengths of the simulation box) --> diffusion model will need this to wrap noisy atoms back into the box via PBC
             cell_dims = atoms.cell.lengths()
@@ -87,7 +103,6 @@ class SiCGraphDataset(InMemoryDataset):
                 edge_index=edge_index, 
                 forces=forces, 
                 energy=energy,
-                stress=stress,
                 y=density,
                 cell=cell
             )
@@ -99,14 +114,10 @@ class SiCGraphDataset(InMemoryDataset):
 
 
 if __name__ == "__main__":
-    graph_dataset = SiCGraphDataset(root='.', xyz_file=PROCESSED_XYZ)
+    graph_dataset = GCGraphDataset(root='.', xyz_file=PROCESSED_XYZ)
     sample = graph_dataset[0]
     
     print(sample)
-    print(f"Nodes (Atoms): {sample.z.shape[0]}")
-    print(f"Edges (Bonds): {sample.edge_index.shape[1]}")
-    print(f"Feature 'z' (Type): {sample.z}")
-    print(f"Forces:  {sample.forces}")
-    print(f"Energy:  {sample.energy.item():.4f} eV/atom")
-    print(f"Density: {sample.y.item():.4f} g/cm^3")
-    print(f"Stress: {sample.stress} ev/A^3")
+    print(f"Positions shape: {sample.pos.shape}")
+    print(f"Density: {sample.y.item():.4f} g/cm³")
+    print(f"Cell dimensions: {sample.cell}")

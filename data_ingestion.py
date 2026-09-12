@@ -8,53 +8,49 @@ from config_loader import load_config
 config = load_config()
 
 RAW_DATASET = config['data']['raw_dataset']
-MATERIAL_TYPES = config['data']['material_types']
+ALLOWED_PHASES = config['data']['material_types']
 PROCESSED_XYZ = config['data']['processed_xyz']
 
 frames = read(RAW_DATASET, index=':')
-print(f"Total frames in SiC dataset: {len(frames)}")
+print(f"Total frames in glassy carbon dataset: {len(frames)}")
 
 amorphous_frames = []
 
 for i, atoms in enumerate(frames):
-    config_type = atoms.info.get('config_type', 'unknown') # Default is unknown if there is no config_type mentioned
+    phase = atoms.info.get("phase", "unknown")
 
-    if config_type in MATERIAL_TYPES:
-        
-        # Extracted quantities
-        elements = atoms.get_chemical_symbols()
-        atomic_numbers = atoms.numbers
-        material_type = atoms.info["config_type"]
-        mass = atoms.get_masses().sum()                    # amu
-        volume = atoms.get_volume()                        # Å^3
-        density_calc = (mass / volume) * 1.66053906660     # g/cm^3
-        density = atoms.info.get("density", density_calc)
+    if phase in ALLOWED_PHASES:
+        atomic_numbers = atoms.get_atomic_numbers()
+
+        # This pipeline is designed for glassy carbon only
+        if not np.all(atomic_numbers == 6):
+            raise ValueError(
+                f"Frame {i} contains non-carbon atoms: "
+                f"{sorted(set(atomic_numbers))}"
+            )
+
+        # Calculate density from atomic masses and cell volume
+        mass = atoms.get_masses().sum()                 # amu
+        volume = atoms.get_volume()                     # Å³
+        density = mass / volume * 1.66053906660         # g/cm³
+
         atoms.info["density"] = float(density)
-        forces = atoms.get_forces()                         # eV/Å
-        energy = atoms.get_potential_energy()               # eV
-        free_energy = atoms.calc.results.get("free_energy") # eV
-        stress = atoms.get_stress(voigt=False)              # eV/Å^3 (3x3)
-        pbc = atoms.pbc                                     # (3,) bool
-
-        # print("elements:", elements)
-        # print("atomic_numbers:", atomic_numbers)
-        # print("material_type:", material_type)
-        # print("mass (amu):", mass, " total:", mass.sum())
-        # print("volume (Å^3):", volume)
-        # print("density (g/cm^3):", density)
-        # print("forces (eV/Å) shape:", forces.shape, " first row:", forces[0])
-        # print("energy (eV):", energy)
-        # print("free_energy (eV):", free_energy)
-        # print("stress (eV/Å^3) shape:", stress.shape)
-        # print(stress)
-        # print("pbc:", pbc)
-
         amorphous_frames.append(atoms)
 
-config_counts = Counter(atoms.info.get("config_type", "unknown") for atoms in frames)
-for t in MATERIAL_TYPES:
-    print(f"{t:<12} : {config_counts.get(t, 0)}")
-print(f"Total amorphous solids: {len(amorphous_frames)}")
+phase_counts = Counter(
+    atoms.info.get("phase", "unknown") for atoms in frames
+)
+
+for phase in ALLOWED_PHASES:
+    print(f"{phase:<12} : {phase_counts.get(phase, 0)}")
+
+print(f"Total selected amorphous frames: {len(amorphous_frames)}")
+
+if not amorphous_frames:
+    raise ValueError(
+        "No amorphous carbon frames were found. "
+        "Check the phase labels and material_types configuration."
+    )
 
 write(PROCESSED_XYZ, amorphous_frames)
-print(f"Saved to {PROCESSED_XYZ}")
+print(f"Saved filtered carbon frames to {PROCESSED_XYZ}")

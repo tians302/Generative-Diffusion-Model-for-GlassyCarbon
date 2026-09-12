@@ -1,15 +1,11 @@
-# Data Processing (data-ingestion.py & dataset.py)
+# Data Processing for glassy carbon (data-ingestion.py & dataset.py)
 data:
-  raw_dataset: "dataset-SiC-TGAP.xyz"
-  processed_xyz: "sic_amorphous.xyz" # https://zenodo.org/records/17182227
-  processed_pt: "sic_graph_data.pt"
+  raw_dataset: "gc2.xyz"
+  processed_xyz: "gc_filtered.xyz" 
+  processed_pt: "gc_graph_data.pt"
   material_types: 
-    - "amorph_aimd"
-  # material_types: 
-  #   - "amorph_aimd"
-  #   - "quench_aimd"
-  #   - "eqlMelt_aimd"
-  #   - "melt_aimd"
+    - "amorphous"
+
 
 # Graph Construction (dataset.py & diffusion.py)
 graph:
@@ -19,14 +15,14 @@ graph:
 # NequIP Model Architecture (nequip_layer.py)
 model:
   num_layers: 3
-  num_types: 2            # e.g., Si=14, C=6
+  num_types: 1
   embedding_dim: 8
   bessel_basis: 8
   irreps_node: "64x0e + 32x1o"
   irreps_sh: "1x0e + 1x1o + 1x2e"
   irreps_edge: "4x0e + 4x1o + 2x2e"
-  density_min: 2.0        # Minimum bound for scalar embedder
-  density_max: 3.5        # Maximum bound for scalar embedder
+  density_min: 1.4        # Minimum bound for scalar embedder gc2 = 1.5
+  density_max: 1.6        # Maximum bound for scalar embedder
 
 # DDPM Architecture (diffusion.py)
 diffusion:
@@ -43,17 +39,17 @@ training:
   val_split: 0.1
   log_interval: 400
   checkpoints:
-    latest: "sic_diffusion_latest.pt"
-    best: "sic_diffusion_best.pt"
-    final: "sic_diffusion_final.pt"
+    latest: "gc_diffusion_latest.pt"
+    best: "gc_diffusion_best.pt"
+    final: "gc_diffusion_final.pt"
   loss_curve_img: "loss_curve.png"
 
 # Inference & Generation (generate.py)
 generation:
-  target_density: 3.21
-  cell_size: [10.0, 10.0, 10.0]
-  num_atoms: 60
-  output_filename: "generated_sic.xyz"
+  target_density: 1.5
+  cell_size: [14.0, 14.0, 14.0]
+  num_atoms: 216
+  output_filename: "generated_gc.xyz"
 
 # Physics Evaluation (evaluate.py)
 evaluation:
