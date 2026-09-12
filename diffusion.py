@@ -143,7 +143,7 @@ class DiffusionModel(nn.Module):
             
             x = x - torch.floor(x / cell_tensor) * cell_tensor # Forces every coordinate into [0,L] --> wraps back into cell boundaries
             edge_index = build_pbc_graph(x, cell_tensor, cutoff=CUTOFF_RADIUS, max_neighbors=MAX_NEIGHBORS) # Builds dynamic edges for current positions; edge_index shape: [2, E]
-            data = Data(pos=x, z=z, edge_index=edge_index)
+            data = Data(pos=x, z=z, edge_index=edge_index, cell=cell_tensor.unsqueeze(0))
             data.batch = torch.zeros(num_atoms, dtype=torch.long, device=self.device) # Shape [N]
             
             # Conditions structure on target density

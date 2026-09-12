@@ -203,9 +203,12 @@ class NequIP_SiC(nn.Module):
         density = data.y # density.shape == [1]
         batch = data.batch if hasattr(data, 'batch') else torch.zeros_like(z) # Encodes which atoms are in which graph --> batch = tensor([0, 0, 0, 1, 1]) which should 2 graphs
         
-        # Computes edge vector --> r_ij = x_j - x_i fpr each edge
-        edge_vec = pos[edge_index[1]] - pos[edge_index[0]] # edgevec.shape == [E,3]
-        edge_dist = edge_vec.norm(dim=1, keepdim=True) # Normalizes to [E]
+        # Compute r_ij for minimum-image convention
+        edge_vec = pos[edge_index[1]] - pos[edge_index[0]]
+        cell = data.cell.reshape(-1, 3) 
+        edge_cell = cell[batch[edge_index[0]]] # cell dim for each edge
+        edge_vec = edge_vec - torch.round(edge_vec / edge_cell) * edge_cell # apply mic
+        edge_dist = edge_vec.norm(dim=1, keepdim=True)
         
         # Converts each r_ij vector into a set of spherical harmonic features and encodes distances
         edge_sh = o3.spherical_harmonics( # edge_sh.shape == [E, 26]
