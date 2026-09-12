@@ -176,6 +176,12 @@ def train():
         # Extracts model without DataParallel wrapper for saving
         model_to_save = diffusion.module if isinstance(diffusion, nn.DataParallel) else diffusion
 
+        # Best model checkpoint
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            torch.save(model_to_save.state_dict(), BEST_CHECKPOINT)
+            print(f"   -> New best validation loss! Overwriting {BEST_CHECKPOINT}")
+
         # Saves state to protect against Slurm timeouts
         torch.save({
             'epoch': epoch,
@@ -185,12 +191,6 @@ def train():
             'train_losses': train_losses,
             'val_losses': val_losses
         }, LATEST_CHECKPOINT)
-
-        # Best model checkpoint
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            torch.save(model_to_save.state_dict(), BEST_CHECKPOINT)
-            print(f"   -> New best validation loss! Overwriting {BEST_CHECKPOINT}")
 
     prof.stop() # End the profiler
 

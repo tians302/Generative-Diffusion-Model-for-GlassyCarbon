@@ -47,7 +47,7 @@ training:
 # Inference & Generation (generate.py)
 generation:
   target_density: 1.5
-  cell_size: [14.0, 14.0, 14.0]
+  cell_size: [14.21, 14.21, 14.21]
   num_atoms: 216
   output_filename: "generated_gc.xyz"
 
