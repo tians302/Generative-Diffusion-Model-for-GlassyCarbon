@@ -1,6 +1,9 @@
+# Which generative process to train / sample with: "ddpm" (diffusion.py) or "bridge" (bridge.py)
+method: "bridge"
+
 # Data Processing for glassy carbon (data-ingestion.py & dataset.py)
 data:
-  raw_dataset: "gc2.xyz"
+  raw_dataset: "data/gc2/trajectory.xyz"   # DEV DATA ONLY: gc2's second half is an unquenched melt (see 04-gc-data-assessment.md)
   processed_xyz: "gc_filtered.xyz" 
   processed_pt: "gc_graph_data.pt"
   material_types: 
@@ -30,6 +33,26 @@ diffusion:
   sigma_min: 0.001
   sigma_max: 0.75
   langevin_steps: 2900    # Steps to apply extra noise during generation
+  checkpoints:
+    latest: "gc_diffusion_latest.pt"
+    best: "gc_diffusion_best.pt"
+    final: "gc_diffusion_final.pt"
+
+# Schrodinger bridge / bridge matching (bridge.py, priors.py)
+bridge:
+  prior_kind: "from_frames"     # from_frames | diamond | graphite | gas
+  prior_source_phase: "crystal" # from_frames: which frames of data.raw_dataset to use (gc2 frames 0-99 = thermal diamond, 216 atoms)
+  prior_xyz: "gc_prior.xyz"     # priors.py writes here, already dilated into generation.cell_size
+  num_prior_samples: 100        # diamond / graphite / gas only
+  prior_jitter: 0.05            # Å, thermal jitter on ideal-lattice priors
+  seed: 0
+  sigma: 0.5                    # Å, Brownian-bridge noise scale (0 --> deterministic flow matching)
+  num_sample_steps: 100         # NFE at generation (DDPM uses diffusion.num_steps = 3000)
+  shift_trials: 4               # random global translations of the prior tried per pair; best one is kept
+  checkpoints:
+    latest: "gc_bridge_latest.pt"
+    best: "gc_bridge_best.pt"
+    final: "gc_bridge_final.pt"
 
 # Training Hyperparameters (train.py)
 training:
@@ -38,18 +61,17 @@ training:
   num_epochs: 40000           
   val_split: 0.1
   log_interval: 400
-  checkpoints:
-    latest: "gc_diffusion_latest.pt"
-    best: "gc_diffusion_best.pt"
-    final: "gc_diffusion_final.pt"
+  num_workers: 8          # DataLoader workers (the bridge does its atom matching inside them)
   loss_curve_img: "loss_curve.png"
 
 # Inference & Generation (generate.py)
 generation:
   target_density: 1.5
-  cell_size: [14.21, 14.21, 14.21]
+  cell_size: [14.214, 14.214, 14.214]   # matches gc2's amorphous cell exactly (216 atoms --> 1.500 g/cm³)
   num_atoms: 216
+  num_structures: 4                      # bridge: how many structures to generate in one batch
   output_filename: "generated_gc.xyz"
+  start_filename: "generated_gc_start.xyz" # bridge: the prior each generated structure started from (for travel distance)
 
 # Physics Evaluation (evaluate.py)
 evaluation:

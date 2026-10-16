@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from dataset import GCGraphDataset
 from nequip_layer import NequIP_GC
 from diffusion import DiffusionModel
+from bridge import BridgeModel, BridgePairDataset, load_prior_positions
 from torch_geometric.loader import DataListLoader
 from torch_geometric.nn import DataParallel as PyG_DataParallel
 import os
@@ -21,11 +22,14 @@ LEARNING_RATE = float(config['training']['learning_rate'])
 NUM_EPOCHS = config['training']['num_epochs']
 VAL_SPLIT = config['training']['val_split']
 LOG_INTERVAL = config['training']['log_interval']
+NUM_WORKERS = config['training'].get('num_workers', 8)
 
+METHOD = config.get('method', 'ddpm') # "ddpm" or "bridge"
 PROCESSED_XYZ = config['data']['processed_xyz']
-LATEST_CHECKPOINT = config['training']['checkpoints']['latest']
-BEST_CHECKPOINT = config['training']['checkpoints']['best']
-FINAL_CHECKPOINT = config['training']['checkpoints']['final']
+CHECKPOINTS = config['bridge' if METHOD == 'bridge' else 'diffusion']['checkpoints']
+LATEST_CHECKPOINT = CHECKPOINTS['latest']
+BEST_CHECKPOINT = CHECKPOINTS['best']
+FINAL_CHECKPOINT = CHECKPOINTS['final']
 LOSS_CURVE_IMG = config['training']['loss_curve_img']
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -34,7 +38,7 @@ def train():
     wandb.init(
         project="gc-diffusion-benchmark",
         config=config, # Automatically logs your hyperparameters!
-        name="multi-gpu-benchmark"
+        name=f"{METHOD}-multi-gpu-benchmark"
     )
 
     if not os.path.exists(PROCESSED_XYZ):
@@ -47,8 +51,20 @@ def train():
     val_size = max(1, int(dataset_size * VAL_SPLIT))
     train_size = dataset_size - val_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
-    train_loader = DataListLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
-    val_loader = DataListLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=8, pin_memory=True)
+
+    # Bridge: every glass is paired on the fly with an atom-matched prior sample (done inside the loader workers)
+    if METHOD == 'bridge':
+        prior_xyz = config['bridge']['prior_xyz']
+        if not os.path.exists(prior_xyz):
+            print(f"Prior '{prior_xyz}' not found. Running priors.py...")
+            import priors
+            priors.main()
+        prior_positions = load_prior_positions(prior_xyz)
+        train_dataset = BridgePairDataset(train_dataset, prior_positions)
+        val_dataset = BridgePairDataset(val_dataset, prior_positions)
+
+    train_loader = DataListLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=NUM_WORKERS > 0)
+    val_loader = DataListLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
 
     # Initializing models
     gnn_model = NequIP_GC(
@@ -57,13 +73,21 @@ def train():
         cutoff=config['graph']['cutoff_radius']
     )
 
-    diffusion = DiffusionModel(
-        model=gnn_model, 
-        num_steps=config['diffusion']['num_steps'], 
-        sigma_min=config['diffusion']['sigma_min'], 
-        sigma_max=config['diffusion']['sigma_max'], 
-        device=DEVICE
-    )
+    if METHOD == 'bridge':
+        diffusion = BridgeModel(
+            model=gnn_model,
+            sigma=config['bridge']['sigma'],
+            num_sample_steps=config['bridge']['num_sample_steps'],
+            device=DEVICE
+        )
+    else:
+        diffusion = DiffusionModel(
+            model=gnn_model, 
+            num_steps=config['diffusion']['num_steps'], 
+            sigma_min=config['diffusion']['sigma_min'], 
+            sigma_max=config['diffusion']['sigma_max'], 
+            device=DEVICE
+        )
     
     # DataParallel wrapper logic:
     if torch.cuda.device_count() > 1:
@@ -203,11 +227,11 @@ def train():
 
     # Plot the loss curves
     plt.figure(figsize=(10, 6))
-    plt.plot(range(1, NUM_EPOCHS + 1), train_losses, label='Train Loss', color='blue')
-    plt.plot(range(1, NUM_EPOCHS + 1), val_losses, label='Validation Loss', color='orange')
+    plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss', color='blue')
+    plt.plot(range(1, len(val_losses) + 1), val_losses, label='Validation Loss', color='orange')
     plt.xlabel('Epochs')
     plt.ylabel('Mean Squared Error (MSE)')
-    plt.title('Diffusion Model Training vs Validation Loss')
+    plt.title(f'{METHOD.upper()} Training vs Validation Loss')
     plt.legend()
     plt.grid(True)
     plt.savefig(LOSS_CURVE_IMG)

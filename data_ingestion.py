@@ -35,6 +35,7 @@ for i, atoms in enumerate(frames):
         density = mass / volume * 1.66053906660         # g/cm³
 
         atoms.info["density"] = float(density)
+        atoms.wrap() # MD trajectories store unwrapped positions; the bridge interpolates wrapped coordinates
         amorphous_frames.append(atoms)
 
 phase_counts = Counter(

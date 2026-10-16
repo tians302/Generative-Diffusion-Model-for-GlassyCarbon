@@ -1,0 +1,11 @@
+# Raw and processed data (keep data out of git)
+data/
+processed/
+*.xyz
+*.pt
+# Outputs
+logs/
+wandb/
+*.png
+__pycache__/
+.venv/

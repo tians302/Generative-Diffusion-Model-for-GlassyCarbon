@@ -1,0 +1,32 @@
+#!/bin/bash -l
+# Polaris debug-queue training job (1 node = 4x A100, 1 h max walltime).
+# Submit from the repo root:   qsub -A <YOUR_PROJECT> polaris/train_debug.pbs
+# train.py resumes from the latest checkpoint, so just resubmit this job to keep training past 1 h.
+#PBS -N gc_bridge_train
+#PBS -q debug
+#PBS -l select=1:system=polaris
+#PBS -l place=scatter
+#PBS -l walltime=01:00:00
+#PBS -l filesystems=home:eagle
+#PBS -j oe
+
+cd "${PBS_O_WORKDIR}"
+
+module use /soft/modulefiles
+module load conda
+conda activate base
+# If you use the uv environment from pyproject.toml instead:  source .venv/bin/activate
+
+# Compute nodes reach the internet only through the ALCF proxy (needed for wandb online logging)
+export HTTP_PROXY="http://proxy.alcf.anl.gov:3128"
+export HTTPS_PROXY="http://proxy.alcf.anl.gov:3128"
+export http_proxy="${HTTP_PROXY}" https_proxy="${HTTPS_PROXY}"
+export WANDB_MODE="${WANDB_MODE:-offline}"   # sync later with `wandb sync wandb/offline-run-*`
+
+# Optional: point at a different config, e.g. qsub -v GC_CONFIG=configs/my_run.yaml ...
+export GC_CONFIG="${GC_CONFIG:-config.yaml}"
+
+nvidia-smi
+python -c "import torch; print('torch', torch.__version__, 'GPUs:', torch.cuda.device_count())"
+python tests/test_bridge.py
+python train.py
