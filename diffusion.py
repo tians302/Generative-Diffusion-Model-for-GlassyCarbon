@@ -82,13 +82,19 @@ class DiffusionModel(nn.Module):
         # Returns corrupted coordinates and the exact noise added (target for the loss function)
         return x_0 + noise, noise
 
-    def get_loss(self, data):
+    def get_loss(self, data, t=None, weight_by_sigma=True):
         device = data.pos.device
         x_0 = data.pos # [N_total, 3] where N_total is the sum of all atoms across the batch
         batch_size = data.num_graphs
         
-        # Sample one random discrete timestep per graph in the batch
-        t = torch.randint(0, self.num_steps, (batch_size,), device=device).long() # t shape: [Batch]
+        if t is None:
+            t = torch.randint(0, self.num_steps, (batch_size,), device=device).long()
+        else:
+            t = torch.as_tensor(t, device=device).long().view(-1)
+            if t.numel() == 1:
+                t = t.expand(batch_size)
+            if t.numel() != batch_size:
+                raise ValueError(f"Expected {batch_size} timesteps, got {t.numel()}")
         
         # Broadcast the graph-level timestep to every individual atom in that graph
         t_per_atom = t[data.batch] # t_per_atom shape: [N_total]
@@ -124,7 +130,12 @@ class DiffusionModel(nn.Module):
         
         # GNN Predicts the physical noise that was added
         predicted_displacement = self.model(noisy_data, t_norm) # [N_total, 3]
-        return F.mse_loss(predicted_displacement, actual_displacement) # MSE loss between predicted displacement and actual added displacement
+        if weight_by_sigma:
+            # actual_displacement = sigma * eps, so divide both sides by sigma
+            # to get a unit-noise MSE that does not jump with random t
+            sigma_t = self.sigma_train.to(device)[t_per_atom].clamp_min(1e-6).unsqueeze(-1)
+            return F.mse_loss(predicted_displacement / sigma_t, actual_displacement / sigma_t)
+        return F.mse_loss(predicted_displacement, actual_displacement)
 
     # Generates amorphous solids from scratch
     @torch.no_grad() # Sampling is for inference, not training so remove gradient tracking

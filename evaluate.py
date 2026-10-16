@@ -41,11 +41,29 @@ def calculate_rdf(atoms, r_max=R_MAX, bins=BINS):
     
     return r, rdf
 
-# Plots ground truth RDF with the generated structure's RDF
-def plot_rdf_comparison(r, gt_rdf_avg, generated_rdf, target_density):
+# g/cm³ from atomic masses (amu) and cell volume (Å³)
+def mass_density(atoms):
+    mass = atoms.get_masses().sum()
+    volume = atoms.get_volume()
+    return float(mass / volume * 1.66053906660)
+
+def frame_density(atoms):
+    density = atoms.info.get("density")
+    if density is None:
+        return mass_density(atoms)
+    return float(density)
+
+# Plots ground truth RDF with the generated structure's RDF.
+# Each curve is labeled with its own density. The generation target is
+# added to the generated label when the written cell does not match it.
+def plot_rdf_comparison(r, gt_rdf_avg, generated_rdf, gt_density, generated_density, target_density):
     plt.figure(figsize=(10, 6))
-    plt.plot(r, gt_rdf_avg, label=f'Ground Truth (Average) - {target_density} g/cm³', color='black', linewidth=2)
-    plt.plot(r, generated_rdf, label=f'Generated Model - {target_density} g/cm³', color='red', linestyle='--', linewidth=2)
+    plt.plot(r, gt_rdf_avg, label=f'Ground Truth (Average) - {gt_density:.2f} g/cm³', color='black', linewidth=2)
+
+    generated_label = f'Generated Model - {generated_density:.2f} g/cm³'
+    if abs(generated_density - target_density) > 0.01:
+        generated_label += f' (target {target_density:.2f})'
+    plt.plot(r, generated_rdf, label=generated_label, color='red', linestyle='--', linewidth=2)
 
     plt.xlabel('Distance r (Å)')
     plt.ylabel('Radial Distribution Function g(r)')
@@ -61,18 +79,23 @@ def evaluate():
     print(f"--- Starting Evaluation for Target Density {TARGET_DENSITY} g/cm³ ---")
 
     all_structures = read(PROCESSED_XYZ, index=':') # Loads all data
-    filtered_structures = []
-
-    for atoms in all_structures:
-        density = atoms.info.get('density')  
-        if abs(float(density) - TARGET_DENSITY) <= TOLERANCE: # Checks if in tolerance band
-                filtered_structures.append(atoms)
+    filtered_structures = [
+        atoms for atoms in all_structures
+        if abs(frame_density(atoms) - TARGET_DENSITY) <= TOLERANCE
+    ]
 
     if len(filtered_structures) == 0:
-        print(f"Error: Found 0 structures in the dataset with density near {TARGET_DENSITY}.")
-        return
-        
-    print(f"Found {len(filtered_structures)} ground truth structures matching density criteria.")
+        reference_density = float(np.mean([frame_density(atoms) for atoms in all_structures]))
+        print(
+            f"Found 0 structures within {TOLERANCE} g/cm³ of {TARGET_DENSITY}. "
+            f"Using all {len(all_structures)} amorphous frames "
+            f"(mean density {reference_density:.3f} g/cm³)."
+        )
+        filtered_structures = all_structures
+    else:
+        print(f"Found {len(filtered_structures)} ground truth structures matching density criteria.")
+
+    gt_density = float(np.mean([frame_density(atoms) for atoms in filtered_structures]))
 
     # Calculate average RDF for the ground truth
     gt_rdf_total = np.zeros(BINS)
@@ -82,14 +105,20 @@ def evaluate():
     gt_rdf_avg = gt_rdf_total / len(filtered_structures) # Normalizes
 
     generated_atoms = read(GENERATED_XYZ) # Loads generated structure
+    generated_density = mass_density(generated_atoms)
     r, generated_rdf = calculate_rdf(generated_atoms, r_max=R_MAX, bins=BINS)
-    print("Successfully calculated RDF for generated structure.")
+    print(
+        f"Generated structure density is {generated_density:.3f} g/cm³ "
+        f"(config target {TARGET_DENSITY} g/cm³)."
+    )
 
     plot_rdf_comparison(
         r=r,
         gt_rdf_avg=gt_rdf_avg,
         generated_rdf=generated_rdf,
-        target_density=TARGET_DENSITY
+        gt_density=gt_density,
+        generated_density=generated_density,
+        target_density=TARGET_DENSITY,
     )
 
 if __name__ == "__main__":

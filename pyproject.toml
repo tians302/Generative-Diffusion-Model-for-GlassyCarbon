@@ -14,8 +14,3 @@ dependencies = [
     "torch-geometric>=2.7.0",
     "wandb>=0.25.0",
 ]
-
-[tool.uv.workspace]
-members = [
-    "discussion1",
-]

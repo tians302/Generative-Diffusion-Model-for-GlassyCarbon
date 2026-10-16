@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Raw and processed data
+data/
+processed/
+*.xyz
+*.zip
+
+# Checkpoints and training outputs
+*.pt
+*.png
+*.csv
+logs/
+wandb/
+run_archive/
+
+# PBS stdout/stderr (gc-diffusion.o12345 / gc-diffusion.e12345)
+*.o[0-9]*
+*.e[0-9]*

@@ -33,21 +33,32 @@ diffusion:
 
 # Training Hyperparameters (train.py)
 training:
-  batch_size: 2
+  batch_size: 4
   learning_rate: 0.0002   # 2e-4
-  num_epochs: 40000           
+  num_epochs: 40000
   val_split: 0.1
-  log_interval: 400
+  log_interval: 10
+  checkpoint_interval: 50
+  use_data_parallel: false
+  num_workers: 0
+  split_seed: 42
+  weight_loss_by_sigma: true
+  val_fixed_timesteps: true
+  val_t_probes: 8
+  plot_smooth_window: 50
   checkpoints:
     latest: "gc_diffusion_latest.pt"
     best: "gc_diffusion_best.pt"
     final: "gc_diffusion_final.pt"
+  monitor_img: "training_monitor.png"
   loss_curve_img: "loss_curve.png"
+  metrics_csv: "training_metrics.csv"
+  history_csv: "training_metrics_pre_weighted.csv"
 
 # Inference & Generation (generate.py)
 generation:
-  target_density: 1.5
-  cell_size: [14.21, 14.21, 14.21]
+  target_density: 1.72
+  cell_size: [13.58, 13.58, 13.58]
   num_atoms: 216
   output_filename: "generated_gc.xyz"
 

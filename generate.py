@@ -43,7 +43,11 @@ def generate():
     print(f"Loaded weights from {BEST_CHECKPOINT}")
 
     # Generating loop
-    print(f"Generating structure with {NUM_ATOMS} atoms...")
+    print(
+        f"Generating structure with {NUM_ATOMS} atoms... "
+        f"target density {TARGET_DENSITY} g/cm³, cell size {CELL_SIZE} Å "
+        f"(from config.yaml)"
+    )
     generated_pos = diffusion.sample( # shape == [N,3]
         num_atoms=NUM_ATOMS,
         cell_dims=CELL_SIZE,
